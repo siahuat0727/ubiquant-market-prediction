@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+
 def transform_csv2pickle(path, usecols, dtypes):
     train = pd.read_csv(
         path,
@@ -18,8 +19,8 @@ def main():
 
     dtypes = {
         'row_id': 'str',
-        'time_id': 'uint16',
-        'investment_id': 'uint16',
+        'time_id': 'int16',
+        'investment_id': 'int16',
         'target': 'float32',
     }
     for col in features:
@@ -27,10 +28,10 @@ def main():
     transform_csv2pickle(path, basecols+features, dtypes)
 
 
-
 def read():
     train = pd.read_pickle('train.pkl')
     print(train)
 
-# main()
+
+main()
 read()
