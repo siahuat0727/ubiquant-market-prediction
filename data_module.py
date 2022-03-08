@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
@@ -16,10 +17,10 @@ class MyDataset(torch.utils.data.Dataset):
         return len(self.tensor_lists[0])
 
 
-def load_dataset():
+def load_dataset(args):
 
     def get_df_group():
-        df = pd.read_pickle('train.pkl')
+        df = pd.read_parquet(args.input)
         groups = df.groupby('time_id')
         return [
             groups.get_group(v)
@@ -30,7 +31,7 @@ def load_dataset():
     features = [f'f_{i}' for i in range(300)]
 
     X_id = [
-        torch.tensor(df['investment_id'].to_numpy(), dtype=torch.int)
+        torch.tensor(df['investment_id'].to_numpy(dtype=np.int16), dtype=torch.int)
         for df in df_groupby_time
     ]
 
@@ -57,7 +58,7 @@ def load_dataset():
 class UMPDataModule(pl.LightningDataModule):
     def __init__(self, args):
         super().__init__()
-        self.tr, self.val, self.test = load_dataset()
+        self.tr, self.val, self.test = load_dataset(args)
         self.args = args
 
     def train_dataloader(self):

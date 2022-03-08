@@ -34,18 +34,19 @@ def main(args):
 
     kwargs = {}
 
-    trainer = Trainer(gpus=args.n_gpu,
-                      max_epochs=args.epochs,
-                      deterministic=True,
-                      logger=logger,
-                      **kwargs,
-                      )
 
     dm = UMPDataModule(args)
     if not args.test:
+        trainer = Trainer(gpus=args.n_gpu,
+                          max_epochs=args.epochs,
+                          deterministic=True,
+                          logger=logger,
+                          **kwargs,
+                          )
         trainer.fit(litmodel, dm)
-
-    trainer.test(litmodel, datamodule=dm)
+        trainer.test(litmodel, datamodule=dm)
+    else:
+        Trainer(gpus=args.n_gpu).test(litmodel, datamodule=dm)
 
 
 def parse_args():
@@ -53,6 +54,7 @@ def parse_args():
 
     parser.add_argument('--n_gpu', type=int, default=1)
     parser.add_argument('--workers', type=int, default=2)
+    parser.add_argument('--input', default='../input/ubiquant-parquet/train_low_mem.parquet')
 
     # Hyperparams
     parser.add_argument('--batch_size', type=int, default=1)

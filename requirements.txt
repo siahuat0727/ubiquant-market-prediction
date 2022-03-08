@@ -1,3 +1,5 @@
 pandas
 torch
 pytorch-lightning
+pyarrow
+fastparquet
