@@ -3,9 +3,29 @@ from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import (EarlyStopping, LearningRateMonitor,
                                          ModelCheckpoint)
 from torch import nn
-from torchmetrics import MeanSquaredError, PearsonCorrCoef
+from torchmetrics import PearsonCorrCoef
 
 from model import Net
+
+
+def get_loss_fn(loss):
+    def mse(preds, y):
+        return nn.MSELoss()(preds, y)
+
+    def pcc(preds, y):
+        assert preds.dim() == 2 and preds.size(1) == 1, preds.size()
+        assert preds.size() == y.size(), (preds.size(), y.size())
+
+        cos = nn.CosineSimilarity(dim=0, eps=1e-6)
+        loss = cos(preds - preds.mean(dim=0, keepdim=True),
+                   y - y.mean(dim=0, keepdim=True))
+        return -cos(preds - preds.mean(dim=0, keepdim=True),
+                    y - y.mean(dim=0, keepdim=True)).mean()
+
+    return {
+        'mse': mse,
+        'pcc': pcc,
+    }[loss]
 
 
 class UMPLitModule(LightningModule):
@@ -14,7 +34,7 @@ class UMPLitModule(LightningModule):
         self.args = args
         self.model = Net(args)
         self.test_pearson = PearsonCorrCoef()
-        self.mse = nn.MSELoss()
+        self.loss_fn = get_loss_fn(args.loss)
 
     def forward(self, *args):
         return self.model(*args)
@@ -26,7 +46,7 @@ class UMPLitModule(LightningModule):
         y = y.squeeze(0).unsqueeze(1)
 
         preds = self.forward(x_id, x_feat)
-        loss = self.mse(preds, y)
+        loss = self.loss_fn(preds, y)
         self.log('train_loss', loss)
         return loss
 
@@ -71,5 +91,5 @@ class UMPLitModule(LightningModule):
         return [
             LearningRateMonitor(),
             EarlyStopping(monitor='val_pearson', mode='max', patience=10),
-            ModelCheckpoint(monitor='val_pearson'),
+            ModelCheckpoint(monitor='val_pearson', mode='max'),
         ]

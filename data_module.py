@@ -7,7 +7,8 @@ from torch.utils.data import DataLoader, random_split
 
 class MyDataset(torch.utils.data.Dataset):
     def __init__(self, *tensor_lists) -> None:
-        assert all(len(tensor_lists[0]) == len(t) for t in tensor_lists), "Size mismatch between tensor_lists"
+        assert all(len(tensor_lists[0]) == len(
+            t) for t in tensor_lists), "Size mismatch between tensor_lists"
         self.tensor_lists = tensor_lists
 
     def __getitem__(self, index):
@@ -15,6 +16,21 @@ class MyDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.tensor_lists[0])
+
+
+def get_features():
+    return [f'f_{i}' for i in range(300)]
+
+
+def df_to_input_id(df):
+    return torch.tensor(df['investment_id'].to_numpy(dtype=np.int16),
+                        dtype=torch.int)
+
+
+def df_to_input_feat(df):
+    features = get_features()
+    return torch.tensor(df[features].to_numpy(),
+                        dtype=torch.float32)
 
 
 def load_dataset(args):
@@ -28,15 +44,14 @@ def load_dataset(args):
         ]
 
     df_groupby_time = get_df_group()
-    features = [f'f_{i}' for i in range(300)]
 
     X_id = [
-        torch.tensor(df['investment_id'].to_numpy(dtype=np.int16), dtype=torch.int)
+        df_to_input_id(df)
         for df in df_groupby_time
     ]
 
     X_feat = [
-        torch.tensor(df[features].to_numpy(), dtype=torch.float32)
+        df_to_input_feat(df)
         for df in df_groupby_time
     ]
 

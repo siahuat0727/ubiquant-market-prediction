@@ -1,6 +1,8 @@
 import torch
 from torch import nn
 
+from data_module import get_features
+
 
 class Net(nn.Module):
     def __init__(self, args):
@@ -9,7 +11,7 @@ class Net(nn.Module):
         # TODO init
         self.emb = nn.Embedding(args.n_emb, args.emb_dim)
 
-        in_size = args.emb_dim + 300
+        in_size = args.emb_dim + len(get_features())
         szs = [in_size] + args.szs
 
         layers = [
@@ -26,7 +28,8 @@ class Net(nn.Module):
 
         for m in self.modules():
             if isinstance(m, (nn.Linear, nn.Embedding)):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                nn.init.kaiming_normal_(
+                    m.weight, mode="fan_out", nonlinearity="relu")
             elif isinstance(m, nn.BatchNorm1d):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
