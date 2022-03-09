@@ -68,9 +68,11 @@ def run(args):
                       **kwargs,
                       )
     trainer.fit(litmodel, dm)
-    trainer.test(litmodel, datamodule=dm)
-    # TODO get checkpoint path
-    # trainer.test(ckpt_path='best')  probably pl bug, can't get best ckpt
+
+    best_ckpt = trainer.checkpoint_callback.best_model_path
+    trainer.test(ckpt_path=best_ckpt,
+                 datamodule=dm)
+    return best_ckpt
 
 
 def parse_args(is_kaggle):

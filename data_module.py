@@ -45,15 +45,8 @@ def load_dataset(args):
 
     df_groupby_time = get_df_group()
 
-    X_id = [
-        df_to_input_id(df)
-        for df in df_groupby_time
-    ]
-
-    X_feat = [
-        df_to_input_feat(df)
-        for df in df_groupby_time
-    ]
+    X_id = [df_to_input_id(df) for df in df_groupby_time]
+    X_feat = [df_to_input_feat(df) for df in df_groupby_time]
 
     y = [
         torch.tensor(df['target'].to_numpy(), dtype=torch.float32)
