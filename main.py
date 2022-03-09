@@ -98,6 +98,8 @@ def parse_args(is_kaggle):
     parser.add_argument('--emb_dim', type=int, default=32)
     parser.add_argument('--szs', type=int, nargs='+',
                         default=[512, 256, 128, 64])
+    parser.add_argument('--model', default='mlp',
+                        choices=['mlp', 'transformer'])
 
     # Test
     parser.add_argument('--test', action='store_true')

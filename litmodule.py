@@ -4,8 +4,10 @@ from pytorch_lightning.callbacks import (EarlyStopping, LearningRateMonitor,
                                          ModelCheckpoint)
 from torch import nn
 from torchmetrics import PearsonCorrCoef
+from transformers import BertConfig
 
-from model import Net
+from constants import FEATURES
+from models import MLP, UMPTransformer
 
 
 def get_loss_fn(loss):
@@ -13,14 +15,12 @@ def get_loss_fn(loss):
         return nn.MSELoss()(preds, y)
 
     def pcc(preds, y):
-        assert preds.dim() == 2 and preds.size(1) == 1, preds.size()
+        assert preds.dim() == 2, preds.size()
         assert preds.size() == y.size(), (preds.size(), y.size())
 
-        cos = nn.CosineSimilarity(dim=0, eps=1e-6)
-        loss = cos(preds - preds.mean(dim=0, keepdim=True),
-                   y - y.mean(dim=0, keepdim=True))
-        return -cos(preds - preds.mean(dim=0, keepdim=True),
-                    y - y.mean(dim=0, keepdim=True)).mean()
+        cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+        return -cos(preds - preds.mean(dim=1, keepdim=True),
+                    y - y.mean(dim=1, keepdim=True)).mean()
 
     return {
         'mse': mse,
@@ -28,11 +28,20 @@ def get_loss_fn(loss):
     }[loss]
 
 
+def get_model(args):
+    kwargs = {'n_feature': len(FEATURES)}
+    if args.model == 'mlp':
+        return MLP(args, **kwargs)
+
+    assert args.model == 'transformers'
+    return UMPTransformer(BertConfig(num_attention_heads=8), args, **kwargs)
+
+
 class UMPLitModule(LightningModule):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.model = Net(args)
+        self.model = get_model(args)
         self.test_pearson = PearsonCorrCoef()
         self.loss_fn = get_loss_fn(args.loss)
 
@@ -41,9 +50,6 @@ class UMPLitModule(LightningModule):
 
     def training_step(self, batch, batch_idx):
         x_id, x_feat, y = batch
-        x_id = x_id.squeeze(0)
-        x_feat = x_feat.squeeze(0)
-        y = y.squeeze(0).unsqueeze(1)
 
         preds = self.forward(x_id, x_feat)
         loss = self.loss_fn(preds, y)
@@ -52,11 +58,7 @@ class UMPLitModule(LightningModule):
 
     def _evaluate_step(self, batch, batch_idx, stage):
         x_id, x_feat, y = batch
-        x_id = x_id.squeeze(0)
-        x_feat = x_feat.squeeze(0)
-        y = y.squeeze(0).unsqueeze(1)
 
-        preds = self.forward(x_id, x_feat)
         preds = self.forward(x_id, x_feat)
         self.test_pearson(preds, y)
         self.log(f'{stage}_pearson', self.test_pearson, prog_bar=True)
