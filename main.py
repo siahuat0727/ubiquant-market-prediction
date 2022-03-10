@@ -21,9 +21,12 @@ def get_name(args):
     ])).replace(' ', '')
 
 
-def submit(litmodel):
-    litmodel.eval()
-    assert not litmodel.model.training
+def submit(args, ckpts):
+
+    litmodels = [
+        UMPLitModule.load_from_checkpoint(ckpt_path, args=args).eval()
+        for ckpt_path in ckpts
+    ]
 
     import ubiquant
     env = ubiquant.make_env()   # initialize the environment
@@ -33,13 +36,16 @@ def submit(litmodel):
         input_feats = df_to_input_feat(test_df)
 
         with torch.no_grad():
-            submit_df['target'] = litmodel.forward(input_ids, input_feats)
+            submit_df['target'] = torch.stack([
+                litmodel.forward(input_ids, input_feats)
+                for litmodel in litmodels
+            ]).mean(dim=0)
 
         env.predict(submit_df)   # register your predictions
 
 
-def run(args):
-    seed_everything(args.seed)
+def run(args, seed):
+    seed_everything(seed)
 
     # Model
     litmodel = (
@@ -115,14 +121,20 @@ def parse_args(is_kaggle):
     # Checkpoint
     parser.add_argument('--checkpoint', help='path to checkpoints (for test)')
 
-    args = parser.parse_known_args()[0] if is_kaggle else parser.parse_args()
+    # Handle kaggle platform
+    args, unknown = parser.parse_known_args()
+
+    if not is_kaggle:
+        assert not unknown, f'unknown args: {unknown}'
 
     assert all(0 < i <= len(args.szs) for i in args.mhas)
     return args
 
 
 def main():
-    kaggle = True
+    kaggle = False
+    submit = False
+
     args = parse_args(kaggle)
     # On kaggle mode, we are using only the args with default value
     # To changle arguments, please hard code it below, e.g.:
@@ -132,7 +144,15 @@ def main():
     # args.submit = True
     # args.checkpoint = '../input/pretrained/epoch11-step10163.ckpt'
 
-    run(args)
+    best_results = [
+        run(args, seed)
+        for seed in range(args.seed, args.seed + args.n_fold)
+    ]
+
+    if submit:
+        pass
+
+
 
 
 if __name__ == '__main__':
