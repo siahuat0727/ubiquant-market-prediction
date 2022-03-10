@@ -95,12 +95,12 @@ def parse_args(is_kaggle):
     parser.add_argument('--lr_scheduler', default=None)
     parser.add_argument('--loss', default='pcc', choices=['mse', 'pcc'])
     parser.add_argument('--emb_dim', type=int, default=32)
+    parser.add_argument('--n_fold', type=int, default=1)
 
     # Model structure
     parser.add_argument('--n_emb', type=int, default=4000)  # TODO tight
     parser.add_argument('--szs', type=int, nargs='+',
-                        # default=[512, 256, 128, 64])
-                        default=[256, 256])
+                        default=[512, 256, 128, 64])
     parser.add_argument(
         '--mhas', type=int, nargs='+', default=[],
         help=('Insert MHA layer (BertLayer) at the i-th layer (start from 1). '

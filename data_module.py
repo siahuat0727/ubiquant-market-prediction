@@ -39,6 +39,11 @@ def df_to_input_feat(df):
                         dtype=torch.float16)
 
 
+def df_to_target(df):
+    return torch.tensor(df['target'].to_numpy(),
+                        dtype=torch.float16)
+
+
 def load_dataset(args):
 
     def get_df_group():
@@ -51,18 +56,14 @@ def load_dataset(args):
 
     df_groupby_time = get_df_group()
 
-    X_id = [df_to_input_id(df) for df in df_groupby_time]
-    X_feat = [df_to_input_feat(df) for df in df_groupby_time]
+    ids = [df_to_input_id(df) for df in df_groupby_time]
+    feats = [df_to_input_feat(df) for df in df_groupby_time]
+    targets = [df_to_target(df) for df in df_groupby_time]
 
-    y = [
-        torch.tensor(df['target'].to_numpy(), dtype=torch.float16)
-        for df in df_groupby_time
-    ]
-
-    dataset = MyDataset(X_id, X_feat, y)
+    dataset = MyDataset(ids, feats, targets)
 
     n_train = int(len(dataset)*0.7)
-    n_val = int(len(dataset)*0.1)
+    n_val = int(len(dataset)*0.15)
     n_test = len(dataset) - n_train - n_val
 
     tr, val, test = random_split(dataset, [n_train, n_val, n_test])
