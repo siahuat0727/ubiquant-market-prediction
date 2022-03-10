@@ -36,26 +36,23 @@ def df_to_input_id(df):
 
 def df_to_input_feat(df):
     return torch.tensor(df[FEATURES].to_numpy(),
-                        dtype=torch.float16)
+                        dtype=torch.float32)
 
 
 def df_to_target(df):
     return torch.tensor(df['target'].to_numpy(),
-                        dtype=torch.float16)
+                        dtype=torch.float32)
 
 
-def load_datasets(args):
+def load_data(path):
+    df = pd.read_parquet(path)
+    groups = df.groupby('time_id')
+    return [
+        groups.get_group(v)
+        for v in df.time_id.unique()
+    ]
 
-    def get_df_group():
-        df = pd.read_parquet(args.input)
-        groups = df.groupby('time_id')
-        return [
-            groups.get_group(v)
-            for v in df.time_id.unique()
-        ]
-
-    df_groupby_time = get_df_group()
-
+def split(df_groupby_time, split_ratios):
     ids = [df_to_input_id(df) for df in df_groupby_time]
     feats = [df_to_input_feat(df) for df in df_groupby_time]
     targets = [df_to_target(df) for df in df_groupby_time]
@@ -63,7 +60,7 @@ def load_datasets(args):
     dataset = MyDataset(ids, feats, targets)
 
     lengths = []
-    for ratio in args.split_ratios[:-1]:
+    for ratio in split_ratios[:-1]:
         lengths.append(int(len(dataset)*ratio))
     lengths.append(len(dataset) - sum(lengths))
 
@@ -71,11 +68,11 @@ def load_datasets(args):
 
 
 class UMPDataModule(pl.LightningDataModule):
-    def __init__(self, args):
+    def __init__(self, args, dataset):
         super().__init__()
         self.args = args
 
-        datasets = load_datasets(args)
+        datasets = split(dataset, args.split_ratios)
         if len(datasets) == 3:
             self.tr, self.val, self.test = datasets
         else:

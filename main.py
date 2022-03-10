@@ -3,7 +3,8 @@ from argparse import ArgumentParser
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from data_module import UMPDataModule, df_to_input_feat, df_to_input_id
+from data_module import (UMPDataModule, df_to_input_feat, df_to_input_id,
+                         load_data)
 from litmodule import UMPLitModule
 
 
@@ -44,7 +45,7 @@ def do_submit(args, ckpts):
         env.predict(submit_df)   # register your predictions
 
 
-def run(args, seed):
+def run(args, seed, dataset):
     seed_everything(seed)
 
     # Model
@@ -53,8 +54,7 @@ def run(args, seed):
         if args.checkpoint is None else
         UMPLitModule.load_from_checkpoint(args.checkpoint, args=args)
     )
-
-    dm = UMPDataModule(args)
+    dm = UMPDataModule(args, dataset)
     if args.test:
         Trainer(gpus=args.n_gpu).test(litmodel, datamodule=dm)
         return
@@ -62,15 +62,13 @@ def run(args, seed):
     name = get_name(args)
     logger = TensorBoardLogger(save_dir='tensorboard_logs', name=name)
 
-    kwargs = {}
-
     trainer = Trainer(gpus=args.n_gpu,
                       max_epochs=args.epochs,
                       deterministic=True,
                       logger=logger,
-                      precision=16,
-                      **kwargs,
+                      # precision=16,
                       )
+
     trainer.fit(litmodel, dm)
 
     best_ckpt = trainer.checkpoint_callback.best_model_path
@@ -140,18 +138,25 @@ def main():
     # args.loss = 'mse'
     # args.szs = [512, 128, 64, 64, 64]
 
+
+    data = load_data(args.input)
     best_results = [
-        run(args, seed)
+        run(args, seed, data)
         for seed in range(args.seed, args.seed + args.n_fold)
     ]
+    del data
 
     test_pearsons = [pearson for _, pearson in best_results]
-    print(f'{test_pearsons=}, mean={sum(test_pearsons)/len(test_pearsons)}')
+    print(f'{test_pearsons}, mean={sum(test_pearsons)/len(test_pearsons)}')
 
     submit = False
     if submit:
         best_ckpts = [ckpt for ckpt, _ in best_results]
         do_submit(args, best_ckpts)
+    else:
+        test_pearsons = [pearson for _, pearson in best_results]
+        print(f'{test_pearsons}, mean={sum(test_pearsons)/len(test_pearsons)}')
+
 
 
 if __name__ == '__main__':
