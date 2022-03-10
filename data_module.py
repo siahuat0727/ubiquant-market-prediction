@@ -4,6 +4,17 @@ import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, random_split
 
+from constants import FEATURES
+
+
+def collate_fn(datas):
+    prems = [torch.randperm(data[0].size(0)) for data in datas]
+    length = min(data[0].size(0) for data in datas)
+    return [
+        torch.stack([d[i][perm][:length] for d, perm in zip(datas, prems)])
+        for i in range(3)
+    ]
+
 
 class MyDataset(torch.utils.data.Dataset):
     def __init__(self, *tensor_lists) -> None:
@@ -18,19 +29,14 @@ class MyDataset(torch.utils.data.Dataset):
         return len(self.tensor_lists[0])
 
 
-def get_features():
-    return [f'f_{i}' for i in range(300)]
-
-
 def df_to_input_id(df):
     return torch.tensor(df['investment_id'].to_numpy(dtype=np.int16),
                         dtype=torch.int)
 
 
 def df_to_input_feat(df):
-    features = get_features()
-    return torch.tensor(df[features].to_numpy(),
-                        dtype=torch.float32)
+    return torch.tensor(df[FEATURES].to_numpy(),
+                        dtype=torch.float16)
 
 
 def load_dataset(args):
@@ -49,7 +55,7 @@ def load_dataset(args):
     X_feat = [df_to_input_feat(df) for df in df_groupby_time]
 
     y = [
-        torch.tensor(df['target'].to_numpy(), dtype=torch.float32)
+        torch.tensor(df['target'].to_numpy(), dtype=torch.float16)
         for df in df_groupby_time
     ]
 
@@ -72,10 +78,11 @@ class UMPDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         return DataLoader(self.tr, batch_size=self.args.batch_size,
                           num_workers=self.args.workers, shuffle=True,
-                          drop_last=True, pin_memory=True)
+                          collate_fn=collate_fn, drop_last=True,
+                          pin_memory=True)
 
     def _val_dataloader(self, dataset):
-        return DataLoader(dataset, batch_size=self.args.batch_size,
+        return DataLoader(dataset, batch_size=1,
                           num_workers=self.args.workers, pin_memory=True)
 
     def val_dataloader(self):

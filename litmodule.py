@@ -4,10 +4,9 @@ from pytorch_lightning.callbacks import (EarlyStopping, LearningRateMonitor,
                                          ModelCheckpoint)
 from torch import nn
 from torchmetrics import PearsonCorrCoef
-from transformers import BertConfig
 
 from constants import FEATURES
-from models import MLP, UMPTransformer
+from model import Net
 
 
 def get_loss_fn(loss):
@@ -28,20 +27,11 @@ def get_loss_fn(loss):
     }[loss]
 
 
-def get_model(args):
-    kwargs = {'n_feature': len(FEATURES)}
-    if args.model == 'mlp':
-        return MLP(args, **kwargs)
-
-    assert args.model == 'transformers'
-    return UMPTransformer(BertConfig(num_attention_heads=8), args, **kwargs)
-
-
 class UMPLitModule(LightningModule):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.model = get_model(args)
+        self.model = Net(args, n_feature=len(FEATURES))
         self.test_pearson = PearsonCorrCoef()
         self.loss_fn = get_loss_fn(args.loss)
 
@@ -92,6 +82,6 @@ class UMPLitModule(LightningModule):
     def configure_callbacks(self):
         return [
             LearningRateMonitor(),
-            EarlyStopping(monitor='val_pearson', mode='max', patience=10),
+            EarlyStopping(monitor='val_pearson', mode='max', patience=15),
             ModelCheckpoint(monitor='val_pearson', mode='max'),
         ]

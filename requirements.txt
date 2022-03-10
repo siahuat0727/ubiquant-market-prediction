@@ -1,5 +1,6 @@
 pandas
 torch
 pytorch-lightning
+transformers
 pyarrow
 fastparquet

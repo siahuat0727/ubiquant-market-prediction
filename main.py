@@ -10,9 +10,10 @@ from litmodule import UMPLitModule
 def get_name(args):
     return '-'.join(filter(None, [  # Remove empty string by filtering
         'x'.join(str(sz) for sz in args.szs),
+        'x'.join(str(mha) for mha in args.mhas),
         f'epch{args.epochs}',
         f'opt{args.optimizer}',
-        f'lrschd{args.lr_scheduler}',
+        f'schd{args.lr_scheduler}',
         f'loss{args.loss}',
         f'lr{args.lr}',
         f'wd{args.weight_decay}',
@@ -65,6 +66,7 @@ def run(args):
                       max_epochs=args.epochs,
                       deterministic=True,
                       logger=logger,
+                      precision=16,
                       **kwargs,
                       )
     trainer.fit(litmodel, dm)
@@ -92,12 +94,17 @@ def parse_args(is_kaggle):
     parser.add_argument('--optimizer', default='adam')
     parser.add_argument('--lr_scheduler', default=None)
     parser.add_argument('--loss', default='pcc', choices=['mse', 'pcc'])
+    parser.add_argument('--emb_dim', type=int, default=32)
 
     # Model structure
     parser.add_argument('--n_emb', type=int, default=4000)  # TODO tight
-    parser.add_argument('--emb_dim', type=int, default=32)
     parser.add_argument('--szs', type=int, nargs='+',
-                        default=[512, 256, 128, 64])
+                        # default=[512, 256, 128, 64])
+                        default=[256, 256])
+    parser.add_argument(
+        '--mhas', type=int, nargs='+', default=[],
+        help=('Insert MHA layer (BertLayer) at the i-th layer (start from 1). '
+              'Every element should be <= len(szs)'))
     parser.add_argument('--model', default='mlp',
                         choices=['mlp', 'transformer'])
 
@@ -106,11 +113,12 @@ def parse_args(is_kaggle):
     parser.add_argument('--submit', action='store_true')
 
     # Checkpoint
-    parser.add_argument('--checkpoint', help='path to checkpoint')
+    parser.add_argument('--checkpoint', help='path to checkpoints (for test)')
 
-    if is_kaggle:
-        return parser.parse_known_args()[0]
-    return parser.parse_args()
+    args = parser.parse_known_args()[0] if is_kaggle else parser.parse_args()
+
+    assert all(0 < i <= len(args.szs) for i in args.mhas)
+    return args
 
 
 def main():
