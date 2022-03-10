@@ -5,6 +5,8 @@ from transformers.models.bert.modeling_bert import BertLayer as _BertLayer
 
 
 class SafeEmbedding(nn.Embedding):
+    "Handle unseen id"
+
     def forward(self, input):
         output = torch.empty((*input.size(), self.embedding_dim),
                              device=input.device,
@@ -19,6 +21,8 @@ class SafeEmbedding(nn.Embedding):
 
 
 class FlattenBatchNorm1d(nn.BatchNorm1d):
+    "BatchNorm1d that treats (N, C, L) as (N*C, L)"
+
     def forward(self, input):
         sz = input.size()
         return super().forward(input.view(-1, sz[-1])).view(*sz)
@@ -48,7 +52,10 @@ class Net(nn.Module):
         for layer_i, (in_sz, out_sz) in enumerate(zip(szs[:-1], szs[1:])):
             layers.append(nn.Linear(in_sz, out_sz))
             layers.append(FlattenBatchNorm1d(out_sz))
-            layers.append(nn.SiLU())
+            layers.append(nn.SiLU(inplace=True))
+
+            if args.dropout > 0.0:
+                layers.append(nn.Dropout(p=args.dropout, inplace=True))
 
             if layer_i in args.mhas:
                 layers.append(BertLayer(BertConfig(

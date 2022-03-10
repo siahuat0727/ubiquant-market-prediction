@@ -21,7 +21,7 @@ def get_name(args):
     ])).replace(' ', '')
 
 
-def submit(args, ckpts):
+def do_submit(args, ckpts):
 
     litmodels = [
         UMPLitModule.load_from_checkpoint(ckpt_path, args=args).eval()
@@ -54,10 +54,6 @@ def run(args, seed):
         UMPLitModule.load_from_checkpoint(args.checkpoint, args=args)
     )
 
-    if args.submit:
-        submit(litmodel)
-        return
-
     dm = UMPDataModule(args)
     if args.test:
         Trainer(gpus=args.n_gpu).test(litmodel, datamodule=dm)
@@ -78,9 +74,10 @@ def run(args, seed):
     trainer.fit(litmodel, dm)
 
     best_ckpt = trainer.checkpoint_callback.best_model_path
-    trainer.test(ckpt_path=best_ckpt,
-                 datamodule=dm)
-    return best_ckpt
+    test_result = trainer.test(ckpt_path=best_ckpt,
+                               datamodule=dm)
+
+    return best_ckpt, test_result[0]['test_pearson']
 
 
 def parse_args(is_kaggle):
@@ -102,6 +99,11 @@ def parse_args(is_kaggle):
     parser.add_argument('--loss', default='pcc', choices=['mse', 'pcc'])
     parser.add_argument('--emb_dim', type=int, default=32)
     parser.add_argument('--n_fold', type=int, default=1)
+    parser.add_argument('--dropout', type=float, default=0.0,
+                        help='Set to 0.0 to disable')
+    parser.add_argument('--split_ratios', type=float,
+                        default=[0.7, 0.15, 0.15],
+                        help='train, val, and test set (optional) split ratio')
 
     # Model structure
     parser.add_argument('--n_emb', type=int, default=4000)  # TODO tight
@@ -111,8 +113,6 @@ def parse_args(is_kaggle):
         '--mhas', type=int, nargs='+', default=[],
         help=('Insert MHA layer (BertLayer) at the i-th layer (start from 1). '
               'Every element should be <= len(szs)'))
-    parser.add_argument('--model', default='mlp',
-                        choices=['mlp', 'transformer'])
 
     # Test
     parser.add_argument('--test', action='store_true')
@@ -133,26 +133,25 @@ def parse_args(is_kaggle):
 
 def main():
     kaggle = False
-    submit = False
 
     args = parse_args(kaggle)
     # On kaggle mode, we are using only the args with default value
     # To changle arguments, please hard code it below, e.g.:
     # args.loss = 'mse'
-    # args.szs = [256, 256, 256, 256, 256]
-
-    # args.submit = True
-    # args.checkpoint = '../input/pretrained/epoch11-step10163.ckpt'
+    # args.szs = [512, 128, 64, 64, 64]
 
     best_results = [
         run(args, seed)
         for seed in range(args.seed, args.seed + args.n_fold)
     ]
 
+    test_pearsons = [pearson for _, pearson in best_results]
+    print(f'{test_pearsons=}, mean={sum(test_pearsons)/len(test_pearsons)}')
+
+    submit = False
     if submit:
-        pass
-
-
+        best_ckpts = [ckpt for ckpt, _ in best_results]
+        do_submit(args, best_ckpts)
 
 
 if __name__ == '__main__':

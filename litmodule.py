@@ -82,6 +82,6 @@ class UMPLitModule(LightningModule):
     def configure_callbacks(self):
         return [
             LearningRateMonitor(),
-            EarlyStopping(monitor='val_pearson', mode='max', patience=10),
+            EarlyStopping(monitor='val_pearson', mode='max', patience=12),
             ModelCheckpoint(monitor='val_pearson', mode='max'),
         ]

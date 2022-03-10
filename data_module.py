@@ -44,7 +44,7 @@ def df_to_target(df):
                         dtype=torch.float16)
 
 
-def load_dataset(args):
+def load_datasets(args):
 
     def get_df_group():
         df = pd.read_parquet(args.input)
@@ -62,19 +62,26 @@ def load_dataset(args):
 
     dataset = MyDataset(ids, feats, targets)
 
-    n_train = int(len(dataset)*0.7)
-    n_val = int(len(dataset)*0.15)
-    n_test = len(dataset) - n_train - n_val
+    lengths = []
+    for ratio in args.split_ratios[:-1]:
+        lengths.append(int(len(dataset)*ratio))
+    lengths.append(len(dataset) - sum(lengths))
 
-    tr, val, test = random_split(dataset, [n_train, n_val, n_test])
-    return tr, val, test
+    return random_split(dataset, lengths)
 
 
 class UMPDataModule(pl.LightningDataModule):
     def __init__(self, args):
         super().__init__()
-        self.tr, self.val, self.test = load_dataset(args)
         self.args = args
+
+        datasets = load_datasets(args)
+        if len(datasets) == 3:
+            self.tr, self.val, self.test = datasets
+        else:
+            self.tr, self.val = datasets
+            self.test = self.val
+
 
     def train_dataloader(self):
         return DataLoader(self.tr, batch_size=self.args.batch_size,
