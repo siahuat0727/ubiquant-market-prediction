@@ -52,6 +52,7 @@ def load_data(path):
         for v in df.time_id.unique()
     ]
 
+
 def split(df_groupby_time, split_ratios):
     ids = [df_to_input_id(df) for df in df_groupby_time]
     feats = [df_to_input_feat(df) for df in df_groupby_time]
@@ -68,17 +69,16 @@ def split(df_groupby_time, split_ratios):
 
 
 class UMPDataModule(pl.LightningDataModule):
-    def __init__(self, args, dataset):
+    def __init__(self, args):
         super().__init__()
         self.args = args
 
-        datasets = split(dataset, args.split_ratios)
+        datasets = split(load_data(args.input), args.split_ratios)
         if len(datasets) == 3:
             self.tr, self.val, self.test = datasets
         else:
             self.tr, self.val = datasets
             self.test = self.val
-
 
     def train_dataloader(self):
         return DataLoader(self.tr, batch_size=self.args.batch_size,
