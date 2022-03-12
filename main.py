@@ -13,7 +13,9 @@ def get_name(args):
         'x'.join(str(sz) for sz in args.szs),
         'x'.join(str(mha) for mha in args.mhas),
         f'epch{args.epochs}',
-        f'opt{args.optimizer}',
+        f'btch{args.batch_size}',
+        f'{args.optimizer}',
+        f'drop{args.dropout}',
         f'schd{args.lr_scheduler}',
         f'loss{args.loss}',
         f'lr{args.lr}',
@@ -67,7 +69,7 @@ def train_single(args, seed):
                       max_epochs=args.epochs,
                       deterministic=True,
                       logger=logger,
-                      # precision=16,
+                      precision=16,
                       )
 
     trainer.fit(litmodel, dm)
@@ -103,7 +105,7 @@ def parse_args(is_kaggle=False):
     parser.add_argument('--lr', type=float, default=0.001)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
     parser.add_argument('--seed', type=int, default=42)
-    parser.add_argument('--optimizer', default='adam')
+    parser.add_argument('--optimizer', default='adam', choices=['adam', 'adamw'])
     parser.add_argument('--lr_scheduler', default=None)
     parser.add_argument('--loss', default='pcc', choices=['mse', 'pcc'])
     parser.add_argument('--emb_dim', type=int, default=32)
@@ -114,6 +116,8 @@ def parse_args(is_kaggle=False):
                         default=[0.7, 0.15, 0.15],
                         help='train, val, and test set (optional) split ratio')
     parser.add_argument('--early_stop', action='store_true')
+    parser.add_argument('--swa', action='store_true',
+                        help='whether do Stochastic Weight Averaging')
 
     # Model structure
     parser.add_argument('--n_emb', type=int, default=4000)  # TODO tight
@@ -151,6 +155,7 @@ def run_local():
     best_results = train(args)
     test_pearsons = [res['test_pearson'] for res in best_results]
     print(f'mean={sum(test_pearsons)/len(test_pearsons)}, {test_pearsons}')
+    print(best_results)
 
 
 def kaggle():

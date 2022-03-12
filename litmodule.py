@@ -1,7 +1,8 @@
 import torch
 from pytorch_lightning import LightningModule
 from pytorch_lightning.callbacks import (EarlyStopping, LearningRateMonitor,
-                                         ModelCheckpoint)
+                                         ModelCheckpoint,
+                                         StochasticWeightAveraging)
 from torch import nn
 from torchmetrics import PearsonCorrCoef
 
@@ -43,7 +44,7 @@ class UMPLitModule(LightningModule):
 
         preds = self.forward(x_id, x_feat)
         loss = self.loss_fn(preds, y)
-        self.log('train_loss', loss)
+        self.log('train_loss', loss, on_epoch=True)
         return loss
 
     def _evaluate_step(self, batch, batch_idx, stage):
@@ -67,6 +68,7 @@ class UMPLitModule(LightningModule):
 
         optimizer = {
             'adam': torch.optim.Adam(self.model.parameters(), **kwargs),
+            'adamw': torch.optim.AdamW(self.model.parameters(), **kwargs),
         }[self.args.optimizer]
 
         optim_config = {
@@ -74,13 +76,17 @@ class UMPLitModule(LightningModule):
         }
         if self.args.lr_scheduler is not None:
             optim_config['lr_scheduler'] = {
-                'step_lr': torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.8),
+                'step_lr': torch.optim.lr_scheduler.StepLR(
+                    optimizer, step_size=5, gamma=0.8),
             }[self.args.lr_scheduler]
 
         return optim_config
 
     def configure_callbacks(self):
         callbacks = [LearningRateMonitor()]
+        if self.args.swa:
+            callbacks.append(StochasticWeightAveraging(swa_epoch_start=0.7,
+                                                       device='cpu'))
         if self.args.early_stop:
             callbacks.extend([
                 EarlyStopping(monitor='val_pearson', mode='max', patience=12),
