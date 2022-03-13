@@ -1,4 +1,4 @@
-from argparse import ArgumentParser
+from argparse import ArgumentDefaultsHelpFormatter, ArgumentParser
 
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.loggers import TensorBoardLogger
@@ -90,12 +90,13 @@ def train(args):
 
 
 def parse_args(is_kaggle=False):
-    parser = ArgumentParser()
+    parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     parser = Trainer.add_argparse_args(parser)
 
     parser.add_argument('--workers', type=int, default=2)
     parser.add_argument(
-        '--input', default='../input/ubiquant-parquet/train_low_mem.parquet')
+        '--input', default='../input/ubiquant-parquet/train_low_mem.parquet',
+        help='path to train data')
 
     # Hyperparams
     parser.add_argument('--batch_size', type=int, default=8)
@@ -124,7 +125,7 @@ def parse_args(is_kaggle=False):
         help=('Insert MHA layer (BertLayer) at the i-th layer (start from 1). '
               'Every element should be <= len(szs)'))
     parser.add_argument('--dropout', type=float, default=0.0,
-                        help='Set to 0.0 to disable')
+                        help='dropout rate, set to 0.0 to disable')
 
     # Test
     parser.add_argument('--test', action='store_true')
