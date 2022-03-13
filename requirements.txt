@@ -1,6 +1,7 @@
-pandas
-torch
-pytorch-lightning
-transformers
-pyarrow
 fastparquet
+pandas
+pyarrow
+pytorch-lightning==1.5.10
+torch==1.10.2
+torchmetrics==0.7.2
+transformers==4.17.0
