@@ -16,7 +16,8 @@ class SafeEmbedding(nn.Embedding):
         unseen = seen.logical_not()
 
         output[seen] = super().forward(input[seen])
-        output[unseen] = self.weight.mean(dim=0)
+        output[unseen] = torch.zeros_like(self.weight[0])
+        # output[unseen] = self.weight.mean(dim=0).detach()
         return output
 
 

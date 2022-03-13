@@ -83,13 +83,15 @@ class UMPLitModule(LightningModule):
         return optim_config
 
     def configure_callbacks(self):
-        callbacks = [LearningRateMonitor()]
+        callbacks = [
+            LearningRateMonitor(),
+            ModelCheckpoint(monitor='val_pearson', mode='max', save_last=True,
+                            filename='{epoch}-{val_pearson:.4f}'),
+        ]
         if self.args.swa:
             callbacks.append(StochasticWeightAveraging(swa_epoch_start=0.7,
                                                        device='cpu'))
         if self.args.early_stop:
-            callbacks.extend([
-                EarlyStopping(monitor='val_pearson', mode='max', patience=12),
-                ModelCheckpoint(monitor='val_pearson', mode='max'),
-            ])
+            callbacks.append(EarlyStopping(monitor='val_pearson',
+                                           mode='max', patience=10))
         return callbacks
