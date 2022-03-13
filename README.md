@@ -1,5 +1,11 @@
 # ubiquant-market-prediction
 
+A PyTorch Lightning template to try out a wide range of ideas on the Kaggle competition [Ubiquant Market Prediction](https://www.kaggle.com/c/ubiquant-market-prediction) without modifying any code!
+
+For more details, visit my Kaggle notebook here (TODO link). If you have any suggestions or comments about the competition, please leave them on the Kaggle platform.
+
+:star2: Don't forget to give a star if you like it! :grin:
+
 ## Installation
 
 ```bash
