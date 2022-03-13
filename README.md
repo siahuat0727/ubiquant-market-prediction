@@ -295,8 +295,12 @@ pl.Trainer:
 Train 10 folds
 
 ```bash
-$ export common_args=" --n_fold 10 --gpus 1 --accumulate_grad_batches 4 --max_epochs 150 --split_ratios 0.95 0.05"
-$ python main.py $common_args --batch_size 8 --szs 384 128 64 32 --mhas 3 --swa --lr 0.0003  --dropout 0.4
+$ export common_args=" --n_fold 10 --gpus 1 --accumulate_grad_batches 4 --max_epochs 150 --split_ratios 0.9 0.1"
+$ python main.py $common_args --batch_size 8 --szs 384 128 64 32 --mhas 3 --lr 0.0003  --dropout 0.4
 ```
 
+## Tensorboard Visualization
 
+```
+tensorboard --logdir=logs/
+```
