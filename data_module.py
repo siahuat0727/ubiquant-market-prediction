@@ -1,3 +1,5 @@
+from itertools import accumulate
+
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
@@ -8,10 +10,10 @@ from constants import FEATURES, N_INVESTMENT
 
 
 def collate_fn(datas):
-    prems = [torch.randperm(data[0].size(0)) for data in datas]
-    length = min(data[0].size(0) for data in datas)
+    perms = [torch.randperm(data[0].size(0)) for data in datas]
+    min_len = min(data[0].size(0) for data in datas)
     ids, _, _ = res = [
-        torch.stack([d[i][perm][:length] for d, perm in zip(datas, prems)])
+        torch.stack([d[i][perm][:min_len] for d, perm in zip(datas, perms)])
         for i in range(3)
     ]
     # Random mask some ids to unknown
@@ -33,19 +35,38 @@ class MyDataset(torch.utils.data.Dataset):
         return len(self.tensor_lists[0])
 
 
+class MyTimeDataset(torch.utils.data.Dataset):
+    def __init__(self, *tensor_lists, times=None) -> None:
+        assert all(len(tensor_lists[0]) == len(
+            t) for t in tensor_lists), "Size mismatch between tensor_lists"
+        assert times is not None and times.size(0) == tensor_lists[0].size(0)
+
+        self.tensor_lists = tensor_lists
+        self.unique_times = times.unique()
+        self.times = times
+
+    def __getitem__(self, index):
+        mask = self.times.eq(self.unique_times[index])
+        return tuple(t[mask] for t in self.tensor_lists)
+
+    def __len__(self):
+        return self.unique_times.size(0)
+
+
+def df_to_time(df):
+    return torch.LongTensor(df['time_id'].to_numpy(dtype=np.int))
+
+
 def df_to_input_id(df):
-    return torch.tensor(df['investment_id'].to_numpy(dtype=np.int16),
-                        dtype=torch.int)
+    return torch.LongTensor(df['investment_id'].to_numpy(dtype=np.int))
 
 
 def df_to_input_feat(df):
-    return torch.tensor(df[FEATURES].to_numpy(),
-                        dtype=torch.float32)
+    return torch.FloatTensor(df[FEATURES].to_numpy())
 
 
 def df_to_target(df):
-    return torch.tensor(df['target'].to_numpy(),
-                        dtype=torch.float32)
+    return torch.FloatTensor(df['target'].to_numpy())
 
 
 def load_data(path):
@@ -72,12 +93,45 @@ def split(df_groupby_time, split_ratios):
     return random_split(dataset, lengths)
 
 
+def get_dataset_shuffled(args):
+    return split(load_data(args.input), args.split_ratios)
+
+
+def get_dataset_through_time(args):
+    df = pd.read_parquet(args.input)
+    ids = df_to_input_id(df)
+    feats = df_to_input_feat(df)
+    targets = df_to_target(df)
+    times = df_to_time(df)
+    unique_times = times.unique()
+
+    lengths = []
+    for ratio in args.split_ratios[:-1]:
+        lengths.append(int(len(unique_times)*ratio))
+    lengths.append(len(unique_times) - sum(lengths))
+
+    accum_lens = list(accumulate(lengths))
+
+    def get_dataset(lo, hi):
+        ts = unique_times[lo:hi]
+        mask = times.ge(ts.min()) & times.le(ts.max())
+        return MyTimeDataset(ids[mask], feats[mask], targets[mask],
+                             times=times[mask])
+
+    return [
+        get_dataset(lo, hi)
+        for lo, hi in zip([0]+accum_lens[:-1], accum_lens)
+    ]
+
+
+
 class UMPDataModule(pl.LightningDataModule):
     def __init__(self, args):
         super().__init__()
         self.args = args
 
-        datasets = split(load_data(args.input), args.split_ratios)
+        # datasets = split(load_data(args.input), args.split_ratios)
+        datasets = get_dataset_through_time(args)
         if len(datasets) == 3:
             self.tr, self.val, self.test = datasets
         else:

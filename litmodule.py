@@ -35,6 +35,7 @@ class UMPLitModule(LightningModule):
         self.model = Net(args, n_embed=N_INVESTMENT, n_feature=len(FEATURES))
         self.test_pearson = PearsonCorrCoef()
         self.loss_fn = get_loss_fn(args.loss)
+        print(self.model)
 
     def forward(self, *args):
         return self.model(*args)
@@ -99,3 +100,30 @@ class UMPLitModule(LightningModule):
             callbacks.append(EarlyStopping(monitor='val_pearson',
                                            mode='max', patience=35))
         return callbacks
+
+
+class UMPLitModuleMem(UMPLitModule):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.mem = None
+
+    def training_step(self, batch, batch_idx):
+        x_id, x_feat, y = batch
+
+        preds, self.mem = self.forward(x_id, x_feat, self.mem)
+        if (batch_idx + 1) % self.args.accumulate_grad_batches == 0:
+            self.mem = self.mem.detach()
+        loss = self.loss_fn(preds, y)
+        self.log('train_loss', loss, on_epoch=True)
+        return loss
+
+    def _evaluate_step(self, batch, batch_idx, stage):
+        x_id, x_feat, y = batch
+
+        # TODO no need detach, reset at epoch start
+        preds, self.mem = self.forward(x_id, x_feat, self.mem)
+        self.test_pearson(preds, y)
+        self.log(f'{stage}_pearson', self.test_pearson, prog_bar=True)
+
+    def backward(self, loss, optimizer, optimizer_idx, *args, **kwargs):
+        return loss.backward(*args, **kwargs, retain_graph=True)

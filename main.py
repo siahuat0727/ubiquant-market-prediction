@@ -5,7 +5,7 @@ from pytorch_lightning.loggers import TensorBoardLogger
 
 from data_module import (UMPDataModule, df_to_input_feat, df_to_input_id,
                          load_data)
-from litmodule import UMPLitModule
+from litmodule import UMPLitModule, UMPLitModuleMem
 
 
 def get_name(args):
@@ -25,11 +25,22 @@ def get_name(args):
     ])).replace(' ', '')
 
 
+def get_litmodule_cls(args):
+    if args.n_mem > 0:
+        return UMPLitModuleMem
+    return UMPLitModule
+
+
+def get_litmodule(args):
+    cls = get_litmodule_cls(args)
+    return cls(args)
+
+
 def submit(args, ckpts):
 
     litmodels = [
-        UMPLitModule.load_from_checkpoint(ckpt_path, args=args).eval()
-        for ckpt_path in ckpts
+        get_litmodule_cls(args).load_from_checkpoint(ckpt, args=args).eval()
+        for ckpt in ckpts
     ]
 
     import ubiquant
@@ -51,7 +62,8 @@ def submit(args, ckpts):
 def test(args):
     seed_everything(args.seed)
 
-    litmodel = UMPLitModule.load_from_checkpoint(args.checkpoint, args=args)
+    litmodel = get_litmodule_cls(args).load_from_checkpoint(args.checkpoint,
+                                                            args=args)
     dm = UMPDataModule(args)
 
     Trainer.from_argparse_args(args).test(litmodel, datamodule=dm)
@@ -60,7 +72,7 @@ def test(args):
 def train_single(args, seed):
     seed_everything(seed)
 
-    litmodel = UMPLitModule(args)
+    litmodel = get_litmodule(args)
     dm = UMPDataModule(args)
 
     name = get_name(args)
@@ -134,10 +146,12 @@ def parse_args(is_kaggle=False):
                         help='sizes of each layer')
     parser.add_argument(
         '--mhas', type=int, nargs='+', default=[],
-        help=('Insert MHA layer (BertLayer) at the i-th layer (start from 1). '
-              'Every element should be <= len(szs)'))
+        help=('Insert MHA layer (BertLayer) at the i-th layer (start from 0). '
+              'Every element should be 0 <= * < len(szs)'))
     parser.add_argument('--dropout', type=float, default=0.0,
                         help='dropout rate, set to 0.0 to disable')
+    parser.add_argument('--n_mem', type=int, default=0,
+                        help='# of memory tokens for mha, set to 0 to disable')
 
     # Test
     parser.add_argument('--test', action='store_true',
@@ -152,7 +166,11 @@ def parse_args(is_kaggle=False):
     if not is_kaggle:
         assert not unknown, f'unknown args: {unknown}'
 
-    assert all(0 < i <= len(args.szs) for i in args.mhas)
+    assert all(0 <= i < len(args.szs) for i in args.mhas)
+
+    args.with_memory = args.n_mem > 0
+    if args.with_memory:
+        assert len(args.mhas) == 1, 'Currently support one mha with memory'
     return args
 
 
