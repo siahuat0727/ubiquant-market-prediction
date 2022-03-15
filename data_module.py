@@ -4,16 +4,20 @@ import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, random_split
 
-from constants import FEATURES
+from constants import FEATURES, N_INVESTMENT
 
 
 def collate_fn(datas):
     prems = [torch.randperm(data[0].size(0)) for data in datas]
     length = min(data[0].size(0) for data in datas)
-    return [
+    ids, _, _ = res = [
         torch.stack([d[i][perm][:length] for d, perm in zip(datas, prems)])
         for i in range(3)
     ]
+    # Random mask some ids to unknown
+    mask = torch.rand(ids.size()).le(0.002)
+    ids[mask] = N_INVESTMENT
+    return res
 
 
 class MyDataset(torch.utils.data.Dataset):

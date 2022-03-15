@@ -13,7 +13,7 @@ def get_name(args):
         'x'.join(str(sz) for sz in args.szs),
         'x'.join(str(mha) for mha in args.mhas),
         f'epch{args.max_epochs}',
-        f'btch{args.batch_size}',
+        f'btch{args.batch_size}x{args.accumulate_grad_batches}',
         f'{args.optimizer}',
         f'drop{args.dropout}',
         f'schd{args.lr_scheduler}',
@@ -93,33 +93,45 @@ def parse_args(is_kaggle=False):
     parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
     parser = Trainer.add_argparse_args(parser)
 
-    parser.add_argument('--workers', type=int, default=2)
+    parser.add_argument('--workers', type=int, default=2,
+                        help='# of workers')
     parser.add_argument(
         '--input', default='../input/ubiquant-parquet/train_low_mem.parquet',
         help='path to train data')
 
     # Hyperparams
-    parser.add_argument('--batch_size', type=int, default=8)
-    parser.add_argument('--lr', type=float, default=0.001)
-    parser.add_argument('--weight_decay', type=float, default=1e-4)
-    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--batch_size', type=int, default=8,
+                        help='batch size')
+    parser.add_argument('--lr', type=float, default=0.001,
+                        help='learning rate')
+    parser.add_argument('--weight_decay', type=float, default=1e-4,
+                        help='weight decay rate')
+    parser.add_argument('--seed', type=int, default=42,
+                        help='random seed')
     parser.add_argument('--optimizer', default='adam',
-                        choices=['adam', 'adamw'])
-    parser.add_argument('--lr_scheduler', default=None)
-    parser.add_argument('--loss', default='pcc', choices=['mse', 'pcc'])
-    parser.add_argument('--emb_dim', type=int, default=32)
-    parser.add_argument('--n_fold', type=int, default=1)
+                        choices=['adam', 'adamw'],
+                        help='optimizer')
+    parser.add_argument('--lr_scheduler', default=None,
+                        choices=['plateau'],
+                        help='learning rate scheduler')
+    parser.add_argument('--loss', default='pcc', choices=['mse', 'pcc'],
+                        help='loss function')
+    parser.add_argument('--emb_dim', type=int, default=32,
+                        help='investment embedding dimension')
+    parser.add_argument('--n_fold', type=int, default=1,
+                        help='Number of folds')
     parser.add_argument('--split_ratios', type=float, nargs='+',
                         default=[0.7, 0.15, 0.15],
                         help='train, val, and test set (optional) split ratio')
-    parser.add_argument('--early_stop', action='store_true')
+    parser.add_argument('--early_stop', action='store_true',
+                        help='whether to early stop')
     parser.add_argument('--swa', action='store_true',
                         help='whether to perform Stochastic Weight Averaging')
 
     # Model structure
-    parser.add_argument('--n_emb', type=int, default=4000)  # TODO tight
     parser.add_argument('--szs', type=int, nargs='+',
-                        default=[512, 256, 128, 64])
+                        default=[512, 256, 128, 64],
+                        help='sizes of each layer')
     parser.add_argument(
         '--mhas', type=int, nargs='+', default=[],
         help=('Insert MHA layer (BertLayer) at the i-th layer (start from 1). '
@@ -128,7 +140,8 @@ def parse_args(is_kaggle=False):
                         help='dropout rate, set to 0.0 to disable')
 
     # Test
-    parser.add_argument('--test', action='store_true')
+    parser.add_argument('--test', action='store_true',
+                        help='whether to test')
 
     # Checkpoint
     parser.add_argument('--checkpoint', help='path to checkpoints (for test)')

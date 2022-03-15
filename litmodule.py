@@ -6,7 +6,7 @@ from pytorch_lightning.callbacks import (EarlyStopping, LearningRateMonitor,
 from torch import nn
 from torchmetrics import PearsonCorrCoef
 
-from constants import FEATURES
+from constants import FEATURES, N_INVESTMENT
 from model import Net
 
 
@@ -32,7 +32,7 @@ class UMPLitModule(LightningModule):
     def __init__(self, args):
         super().__init__()
         self.args = args
-        self.model = Net(args, n_feature=len(FEATURES))
+        self.model = Net(args, n_embed=N_INVESTMENT, n_feature=len(FEATURES))
         self.test_pearson = PearsonCorrCoef()
         self.loss_fn = get_loss_fn(args.loss)
 
@@ -73,11 +73,15 @@ class UMPLitModule(LightningModule):
 
         optim_config = {
             'optimizer': optimizer,
+            'monitor': 'val_pearson',
         }
+
         if self.args.lr_scheduler is not None:
             optim_config['lr_scheduler'] = {
                 'step_lr': torch.optim.lr_scheduler.StepLR(
                     optimizer, step_size=5, gamma=0.8),
+                'plateau': torch.optim.lr_scheduler.ReduceLROnPlateau(
+                    optimizer, mode='max', factor=0.9, patience=5)
             }[self.args.lr_scheduler]
 
         return optim_config
@@ -93,5 +97,5 @@ class UMPLitModule(LightningModule):
                                                        device='cpu'))
         if self.args.early_stop:
             callbacks.append(EarlyStopping(monitor='val_pearson',
-                                           mode='max', patience=10))
+                                           mode='max', patience=35))
         return callbacks

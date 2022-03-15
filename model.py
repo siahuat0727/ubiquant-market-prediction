@@ -16,8 +16,8 @@ class SafeEmbedding(nn.Embedding):
         unseen = seen.logical_not()
 
         output[seen] = super().forward(input[seen])
-        output[unseen] = torch.zeros_like(self.weight[0])
-        # output[unseen] = self.weight.mean(dim=0).detach()
+        output[unseen] = torch.zeros_like(
+            self.weight[0]).expand(unseen.sum(), -1)
         return output
 
 
@@ -34,15 +34,37 @@ class BertLayer(_BertLayer):
         return super().forward(*args, **kwargs)[0]
 
 
+class MemBertLayer(BertLayer):
+    def __init__(self, *args, mem_placeholder=None, n_mem=1, **kwargs):
+        super.__init__(*args, **kwargs)
+        self.n_mem = n_mem
+        self.mem_placeholder = mem_placeholder
+
+    def forward(self, hidden, mem=None, **kwargs):
+        assert hidden.dim() == 3, hidden.size()
+        # 1 x L x D
+        assert hidden.size(0) == 1, hidden.size()
+        if mem is None:
+            # TODO replace to positional encodding
+            mem = torch.zeros((1, self.n_mem, hidden.size(2)),
+                              device=hidden.device,
+                              dtype=hidden.dtype)
+        hidden = torch.cat([mem, hidden])
+        hidden = super().forward(hidden, **kwargs)
+        self.mem_placeholder[0], hidden = hidden[:, :mem.size(1)], hidden[:, mem.size(1):]
+        return hidden
+
+
 class Net(nn.Module):
-    def __init__(self, args, n_feature):
+    def __init__(self, args, n_embed, n_feature):
         super().__init__()
 
-        self.emb = SafeEmbedding(args.n_emb, args.emb_dim)
+        self.emb = SafeEmbedding(n_embed, args.emb_dim)
 
         in_size = args.emb_dim + n_feature
         szs = [in_size] + args.szs
 
+        self.mem_placeholder = [None]
         self.layers = nn.Sequential(*self.get_layers(args, szs))
 
         self.post_init()
