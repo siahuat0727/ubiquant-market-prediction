@@ -3,6 +3,10 @@ import math
 import torch
 
 
+def rand_uniform(lo, hi):
+    return torch.FloatTensor(1).uniform_(lo, hi).item()
+
+
 # Modify from https://github.com/wzlxjtu/PositionalEncoding2D
 def pos_encoding(length, n_dim, device='cpu', dtype=torch.float):
     """

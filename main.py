@@ -12,6 +12,7 @@ def get_name(args):
     return '-'.join(filter(None, [  # Remove empty string by filtering
         'x'.join(str(sz) for sz in args.szs),
         'x'.join(str(mha) for mha in args.mhas),
+        f'n_mem{args.n_mem}',
         f'epch{args.max_epochs}',
         f'btch{args.batch_size}x{args.accumulate_grad_batches}',
         f'{args.optimizer}',

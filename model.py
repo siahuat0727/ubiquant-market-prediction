@@ -3,7 +3,7 @@ from torch import nn
 from transformers import BertConfig
 from transformers.models.bert.modeling_bert import BertLayer as _BertLayer
 
-from positional_encoding import pos_encoding
+from utils import pos_encoding
 
 
 class SafeEmbedding(nn.Embedding):

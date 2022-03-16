@@ -107,12 +107,21 @@ class UMPLitModuleMem(UMPLitModule):
         super().__init__(*args, **kwargs)
         self.mem = None
 
+    def on_train_epoch_start(self):
+        self.mem = None
+
+    def on_validation_epoch_start(self):
+        self.mem = None
+
     def training_step(self, batch, batch_idx):
         x_id, x_feat, y = batch
 
         preds, self.mem = self.forward(x_id, x_feat, self.mem)
         if (batch_idx + 1) % self.args.accumulate_grad_batches == 0:
             self.mem = self.mem.detach()
+            # Random reset mem
+            if torch.rand(1).le(0.05):
+                self.mem = None
         loss = self.loss_fn(preds, y)
         self.log('train_loss', loss, on_epoch=True)
         return loss

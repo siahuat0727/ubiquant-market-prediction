@@ -7,11 +7,15 @@ import torch
 from torch.utils.data import DataLoader, random_split
 
 from constants import FEATURES, N_INVESTMENT
+from utils import rand_uniform
 
 
 def collate_fn(datas):
     perms = [torch.randperm(data[0].size(0)) for data in datas]
     min_len = min(data[0].size(0) for data in datas)
+    # Random truncate some
+    min_len = int(min_len * rand_uniform(0.8, 1.0))
+
     ids, _, _ = res = [
         torch.stack([d[i][perm][:min_len] for d, perm in zip(datas, perms)])
         for i in range(3)
@@ -139,8 +143,9 @@ class UMPDataModule(pl.LightningDataModule):
             self.test = self.val
 
     def train_dataloader(self):
+        shuffle = not self.args.with_memory
         return DataLoader(self.tr, batch_size=self.args.batch_size,
-                          num_workers=self.args.workers, shuffle=True,
+                          num_workers=self.args.workers, shuffle=shuffle,
                           collate_fn=collate_fn, drop_last=True,
                           pin_memory=True)
 
