@@ -93,6 +93,7 @@ class BasicLayer(nn.Module):
 
 class Net(nn.Module):
     """return (output, mem) if use_memory else output"""
+
     def __init__(self, args, n_embed, n_feature):
         super().__init__()
 
@@ -105,7 +106,7 @@ class Net(nn.Module):
         self.basic_layers = self._get_layers(args, szs)
         self.fc = nn.Linear(szs[-1], 1)
 
-        self._post_init()
+        # self._post_init()
 
     def _get_layers(self, args, szs):
         layers = nn.ModuleList([

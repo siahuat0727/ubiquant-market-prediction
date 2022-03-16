@@ -35,7 +35,6 @@ class UMPLitModule(LightningModule):
         self.model = Net(args, n_embed=N_INVESTMENT, n_feature=len(FEATURES))
         self.test_pearson = PearsonCorrCoef()
         self.loss_fn = get_loss_fn(args.loss)
-        print(self.model)
 
     def forward(self, *args):
         return self.model(*args)
@@ -85,7 +84,7 @@ class UMPLitModule(LightningModule):
                 'step_lr': torch.optim.lr_scheduler.StepLR(
                     optimizer, step_size=5, gamma=0.8),
                 'plateau': torch.optim.lr_scheduler.ReduceLROnPlateau(
-                    optimizer, mode='max', factor=0.9, patience=5)
+                    optimizer, mode='max', factor=0.95, patience=10)
             }[self.args.lr_scheduler]
 
         return optim_config

@@ -26,6 +26,21 @@ def collate_fn(datas):
     return res
 
 
+class RandomDropSampler(torch.utils.data.Sampler):
+    def __init__(self, dataset, drop_rate=0.1):
+        self.n_len = len(dataset)
+        self._len = max(1, int(self.n_len * (1 - drop_rate)))
+
+    def __iter__(self):
+        mask = torch.zeros(self.n_len, dtype=torch.bool)
+        mask[:self._len] = True
+        mask = mask[torch.randperm(self.n_len)]
+        return iter(torch.arange(self.n_len)[mask].tolist())
+
+    def __len__(self):
+        return self._len
+
+
 class ShuffleDataset(torch.utils.data.Dataset):
     def __init__(self, *tensor_lists) -> None:
         assert all(len(tensor_lists[0]) == len(
@@ -45,16 +60,20 @@ class TimeDataset(torch.utils.data.Dataset):
             t) for t in tensor_lists), "Size mismatch between tensor_lists"
         assert times is not None and times.size(0) == tensor_lists[0].size(0)
 
-        self.tensor_lists = tensor_lists
-        self.unique_times = times.unique()
-        self.times = times
+        def getitem(time):
+            mask = times.eq(time)
+            return tuple(t[mask] for t in tensor_lists)
+
+        self.items = [
+            getitem(time)
+            for time in times.unique().tolist()
+        ]
 
     def __getitem__(self, index):
-        mask = self.times.eq(self.unique_times[index])
-        return tuple(t[mask] for t in self.tensor_lists)
+        return self.items[index]
 
     def __len__(self):
-        return self.unique_times.size(0)
+        return len(self.items)
 
 
 def df_to_time(df):
@@ -128,7 +147,6 @@ def get_time_dataset(args):
     ]
 
 
-
 class UMPDataModule(pl.LightningDataModule):
     def __init__(self, args):
         super().__init__()
@@ -148,10 +166,11 @@ class UMPDataModule(pl.LightningDataModule):
 
     def train_dataloader(self):
         shuffle = not self.args.with_memory
+        sampler = RandomDropSampler(self.tr) if self.args.with_memory else None
         return DataLoader(self.tr, batch_size=self.args.batch_size,
                           num_workers=self.args.workers, shuffle=shuffle,
-                          collate_fn=collate_fn, drop_last=True,
-                          pin_memory=True)
+                          sampler=sampler, collate_fn=collate_fn,
+                          drop_last=True, pin_memory=True)
 
     def _val_dataloader(self, dataset):
         return DataLoader(dataset, batch_size=1,
