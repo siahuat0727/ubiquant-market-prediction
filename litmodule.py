@@ -40,6 +40,9 @@ class UMPLitModule(LightningModule):
     def forward(self, *args):
         return self.model(*args)
 
+    def predict(self, *args):
+        return self.forward(*args)
+
     def training_step(self, batch, batch_idx):
         x_id, x_feat, y = batch
 
@@ -106,6 +109,10 @@ class UMPLitModuleMem(UMPLitModule):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.mem = None
+
+    def predict(self, *args):
+        preds, self.mem = self.forward(*args)
+        return preds
 
     def on_train_epoch_start(self):
         self.mem = None

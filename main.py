@@ -53,7 +53,7 @@ def submit(args, ckpts):
 
         with torch.no_grad():
             submit_df['target'] = torch.cat([
-                litmodel.forward(input_ids, input_feats)
+                litmodel.predict(input_ids, input_feats)
                 for litmodel in litmodels
             ]).mean(dim=0)
 

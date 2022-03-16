@@ -26,7 +26,7 @@ def collate_fn(datas):
     return res
 
 
-class MyDataset(torch.utils.data.Dataset):
+class ShuffleDataset(torch.utils.data.Dataset):
     def __init__(self, *tensor_lists) -> None:
         assert all(len(tensor_lists[0]) == len(
             t) for t in tensor_lists), "Size mismatch between tensor_lists"
@@ -39,7 +39,7 @@ class MyDataset(torch.utils.data.Dataset):
         return len(self.tensor_lists[0])
 
 
-class MyTimeDataset(torch.utils.data.Dataset):
+class TimeDataset(torch.utils.data.Dataset):
     def __init__(self, *tensor_lists, times=None) -> None:
         assert all(len(tensor_lists[0]) == len(
             t) for t in tensor_lists), "Size mismatch between tensor_lists"
@@ -87,7 +87,7 @@ def split(df_groupby_time, split_ratios):
     feats = [df_to_input_feat(df) for df in df_groupby_time]
     targets = [df_to_target(df) for df in df_groupby_time]
 
-    dataset = MyDataset(ids, feats, targets)
+    dataset = ShuffleDataset(ids, feats, targets)
 
     lengths = []
     for ratio in split_ratios[:-1]:
@@ -97,11 +97,11 @@ def split(df_groupby_time, split_ratios):
     return random_split(dataset, lengths)
 
 
-def get_dataset_shuffled(args):
+def get_shuffle_dataset(args):
     return split(load_data(args.input), args.split_ratios)
 
 
-def get_dataset_through_time(args):
+def get_time_dataset(args):
     df = pd.read_parquet(args.input)
     ids = df_to_input_id(df)
     feats = df_to_input_feat(df)
@@ -119,8 +119,8 @@ def get_dataset_through_time(args):
     def get_dataset(lo, hi):
         ts = unique_times[lo:hi]
         mask = times.ge(ts.min()) & times.le(ts.max())
-        return MyTimeDataset(ids[mask], feats[mask], targets[mask],
-                             times=times[mask])
+        return TimeDataset(ids[mask], feats[mask], targets[mask],
+                           times=times[mask])
 
     return [
         get_dataset(lo, hi)
@@ -135,7 +135,11 @@ class UMPDataModule(pl.LightningDataModule):
         self.args = args
 
         # datasets = split(load_data(args.input), args.split_ratios)
-        datasets = get_dataset_through_time(args)
+        if args.with_memory:
+            datasets = get_time_dataset(args)
+        else:
+            datasets = get_shuffle_dataset(args)
+
         if len(datasets) == 3:
             self.tr, self.val, self.test = datasets
         else:
