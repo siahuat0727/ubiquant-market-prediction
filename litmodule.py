@@ -119,15 +119,22 @@ class UMPLitModuleMem(UMPLitModule):
     def on_validation_epoch_start(self):
         self.mem = None
 
+    def _maybe_drop_memory(self, prob=0.05):
+        if torch.rand(1).le(0.05):
+            self.mem = None
+
     def training_step(self, batch, batch_idx):
         x_id, x_feat, y = batch
 
         preds, self.mem = self.forward(x_id, x_feat, self.mem)
-        if (batch_idx + 1) % self.args.accumulate_grad_batches == 0:
+
+        if (
+            self.args.accumulate_grad_batches is None or
+            (batch_idx + 1) % self.args.accumulate_grad_batches == 0
+        ):
             self.mem = self.mem.detach()
-            # Random reset mem
-            if torch.rand(1).le(0.05):
-                self.mem = None
+            self._maybe_drop_memory()
+
         loss = self.loss_fn(preds, y)
         self.log('train_loss', loss, on_epoch=True)
         return loss
@@ -141,4 +148,5 @@ class UMPLitModuleMem(UMPLitModule):
         self.log(f'{stage}_pearson', self.test_pearson, prog_bar=True)
 
     def backward(self, loss, optimizer, optimizer_idx, *args, **kwargs):
-        return loss.backward(*args, **kwargs, retain_graph=True)
+        retain_graph = self.args.accumulate_grad_batches is not None
+        return loss.backward(*args, **kwargs, retain_graph=retain_graph)

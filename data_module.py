@@ -14,7 +14,7 @@ def collate_fn(datas):
     perms = [torch.randperm(data[0].size(0)) for data in datas]
     min_len = min(data[0].size(0) for data in datas)
     # Random truncate some
-    min_len = int(min_len * rand_uniform(0.8, 1.0))
+    min_len = int(min_len * rand_uniform(0.9, 1.0))
 
     ids, _, _ = res = [
         torch.stack([d[i][perm][:min_len] for d, perm in zip(datas, perms)])

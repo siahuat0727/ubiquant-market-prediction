@@ -42,17 +42,26 @@ class MemBertLayer(BertLayer):
         self.n_mem = n_mem
 
     def forward(self, hidden, mem=None, **kwargs):
+        # T x L x D, T is time dimension, L is length of investment per time
         assert hidden.dim() == 3, hidden.size()
-        # 1 x L x D
-        assert hidden.size(0) == 1, hidden.size()
+
         if mem is None:
             mem = pos_encoding(self.n_mem, hidden.size(2),
                                device=hidden.device,
                                dtype=hidden.dtype).unsqueeze(0)
-        hidden = torch.cat([mem, hidden], dim=1)
-        hidden = super().forward(hidden, **kwargs)
-        mem, hidden = hidden[:, :mem.size(1)], hidden[:, mem.size(1):]
-        return hidden, mem
+        # Just for easy to understand, if T = 1 then
+        # hidden = torch.cat([mem, hidden], dim=1)
+        # hidden = super().forward(hidden, **kwargs)
+        # mem, hidden = hidden[:, :mem.size(1)], hidden[:, mem.size(1):]
+        # return hidden, mem
+
+        out_hidden = torch.Tensor().type_as(hidden)
+        for cur_hidden in hidden:
+            cur_hidden = torch.cat([mem, cur_hidden.unsqueeze(0)], dim=1)
+            cur_hidden = super().forward(cur_hidden, **kwargs)
+            mem = cur_hidden[:, :mem.size(1)]
+            out_hidden = torch.cat([out_hidden, cur_hidden[:, mem.size(1):]])
+        return out_hidden, mem
 
 
 class BasicLayer(nn.Module):
@@ -106,7 +115,7 @@ class Net(nn.Module):
         self.basic_layers = self._get_layers(args, szs)
         self.fc = nn.Linear(szs[-1], 1)
 
-        # self._post_init()
+        self._post_init()
 
     def _get_layers(self, args, szs):
         layers = nn.ModuleList([
