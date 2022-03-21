@@ -110,7 +110,7 @@ class UMPLitModuleMem(UMPLitModule):
         self.mem = None
 
     def predict(self, *args):
-        preds, self.mem = self.forward(*args)
+        preds, self.mem = self.forward(*args, self.mem)
         return preds
 
     def on_train_epoch_start(self):
